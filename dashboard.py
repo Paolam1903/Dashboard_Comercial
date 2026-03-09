@@ -5,6 +5,7 @@ import plotly.express as px
 from reglas_meta import calcular_distribucion
 
 
+
 st.set_page_config(layout="wide")
 
 st.title("📊 Dashboard Comercial CVS")
