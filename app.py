@@ -11,7 +11,7 @@ import numpy as np
 # =============================
 # CONFIG
 # =============================
-st.set_page_config("Dashboard Comercial - Marzo CVS 2026", layout="wide")
+st.set_page_config("Dashboard Comercial - Abril CVS 2026", layout="wide")
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
@@ -35,7 +35,7 @@ if not RUTA_LIQ.exists() or not RUTA_METAS.exists():
 # =============================
 st.markdown("""
 <div style="background-color:#E30613;padding:15px;border-radius:10px">
-<h1 style="color:white;text-align:center">📊 Dashboard Cierre Comercial – CVS Marzo 2026</h1>
+<h1 style="color:white;text-align:center">📊 Dashboard Cierre Comercial – CVS Abril 2026</h1>
 </div>
 """, unsafe_allow_html=True)
 
@@ -224,6 +224,9 @@ with tab1:
     st.pyplot(fig)
 
 
+
+
+
     # =============================
     # META GENERAL VS EJECUTADO
     # =============================
@@ -282,7 +285,15 @@ with tab1:
 
     st.pyplot(fig)
 
-
+# =====================
+# SUPERNUMERARIOS
+# =====================
+SUPERNUMERARIOS = [
+    "Johan Daniel Herrera Mazo",
+    "Kelly Yuliana Ospina Saldarriaga",
+    "Lider Zargoza Kelly Celsa",
+    "Sara Julieth Acevedo Gutierrez"
+]
 
 # =====================
 # REGLA DE DISTRIBUCIÓN
@@ -457,7 +468,28 @@ with tab2:
         st.info("Selecciona un CVS en el panel lateral")
         st.stop()
 
-    df_cvs = df_f[df_f["Sucursal"] == cvs_sel]
+    # =========================
+    # DATA COMPLETA
+    # =========================
+    df_cvs = df_f[df_f["Sucursal"] == cvs_sel].copy()
+
+    # limpiar nombres (evita errores)
+    df_cvs["Nombre_Vendedor"] = df_cvs["Nombre_Vendedor"].astype(str).str.strip()
+
+    # =========================
+    # DATA SOLO PARA META (SIN SUPERNUMERARIOS)
+    # =========================
+    df_cvs_meta = df_cvs[
+        ~df_cvs["Nombre_Vendedor"].isin(SUPERNUMERARIOS)
+    ]
+
+    # =========================
+    # SUPERNUMERARIOS
+    # =========================
+    df_super = df_cvs[
+        df_cvs["Nombre_Vendedor"].isin(SUPERNUMERARIOS)
+    ]
+
     maestro = maestro_productos_por_cvs(df_f, cvs_sel)
 
     # =====================
@@ -469,78 +501,65 @@ with tab2:
         nombre_lider = df_lider["Nombre_Vendedor"].iloc[0]
         st.markdown(f"## 👔 Líder: **{nombre_lider}**")
 
-        meta_p, ejec_p, pct_p = calcular_kpi_puntos(df_cvs, df_lider, "LIDER")
+        # 🔥 USAR df_cvs_meta (CLAVE)
+        meta_p, ejec_p, pct_p = calcular_kpi_puntos(df_cvs_meta, df_lider, "LIDER")
 
-        # 🔥 COLOR SEGÚN CUMPLIMIENTO
         if pct_p >= 100:
-                color = "#2ecc71"
+            color = "#2ecc71"
         elif pct_p >= 80:
             color = "#f39c12"
         else:
             color = "#e74c3c"
 
-        st.markdown(
-            f"""
-            <div style="
-                background-color:{color};
-                padding:10px;
-                border-radius:10px;
-                text-align:center;
-                color:white;
-                font-weight:bold;
-                margin-bottom:10px;
-            ">
+        st.markdown(f"""
+        <div style="
+            background-color:{color};
+            padding:10px;
+            border-radius:10px;
+            text-align:center;
+            color:white;
+            font-weight:bold;
+            margin-bottom:10px;">
             {int(ejec_p)} / {int(meta_p)}<br>
             {pct_p}%
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        </div>
+        """, unsafe_allow_html=True)
 
-        col1, col2 = st.columns(2)
+        st.metric("🎯 KPI Puntos", f"{int(ejec_p)} / {int(meta_p)}", f"{pct_p}%")
 
-        with col1:
-            st.metric("🎯 KPI Puntos", f"{int(ejec_p)} / {int(meta_p)}", f"{pct_p}%")
-
-       
-
-        # =====================
-        # TABLA LÍDER
-        # =====================
         tabla_lider = construir_tabla_productos(df_lider, maestro, df_cvs, "LIDER")
 
-        tabla_lider = st.data_editor(
+        st.data_editor(
             tabla_lider,
             disabled=not es_director,
             use_container_width=True,
             key="editor_lider"
         )
 
- 
-
     # =====================
-    # ASESORAS EN COLUMNAS
+    # ASESORES
     # =====================
     st.markdown("## 👥 Asesoras")
 
-    df_asesoras = df_cvs[df_cvs["Rol"] == "ASESOR"]
+    df_asesoras = df_cvs[
+        (df_cvs["Rol"] == "ASESOR") &
+        (~df_cvs["Nombre_Vendedor"].isin(SUPERNUMERARIOS))
+    ]
 
     asesoras = list(df_asesoras.groupby("Nombre_Vendedor"))
 
-    # Número de columnas (puedes cambiar 2, 3 o 4)
-    n_cols = 3
-    cols = st.columns(n_cols)
+    cols = st.columns(3)
 
     for i, (nombre, g) in enumerate(asesoras):
 
-        col = cols[i % n_cols]
+        col = cols[i % 3]
 
         with col:
             st.markdown(f"### 👤 {nombre}")
 
-            meta_p, ejec_p, pct_p = calcular_kpi_puntos(df_cvs, g, "ASESOR")
+            # 🔥 USAR df_cvs_meta (CLAVE)
+            meta_p, ejec_p, pct_p = calcular_kpi_puntos(df_cvs_meta, g, "ASESOR")
 
-            # 🔥 COLOR SEGÚN CUMPLIMIENTO
             if pct_p >= 100:
                 color = "#2ecc71"
             elif pct_p >= 80:
@@ -548,31 +567,59 @@ with tab2:
             else:
                 color = "#e74c3c"
 
-            st.markdown(
-                f"""
+            st.markdown(f"""
+            <div style="
+                background-color:{color};
+                padding:10px;
+                border-radius:10px;
+                text-align:center;
+                color:white;
+                font-weight:bold;
+                margin-bottom:10px;">
+                {int(ejec_p)} / {int(meta_p)}<br>
+                {pct_p}%
+            </div>
+            """, unsafe_allow_html=True)
+
+            tabla = construir_tabla_productos(g, maestro, df_cvs, "ASESOR")
+            st.dataframe(tabla, use_container_width=True)
+
+    # =====================
+    # SUPERNUMERARIOS (SOLO VISUAL)
+    # =====================
+    st.markdown("## 🧩 Supernumerarios (Sin Meta)")
+
+    if df_super.empty:
+        st.info("No hay supernumerarios en este CVS")
+    else:
+
+        cols = st.columns(3)
+
+        for i, (nombre, g) in enumerate(df_super.groupby("Nombre_Vendedor")):
+
+            col = cols[i % 3]
+
+            with col:
+                st.markdown(f"### 👤 {nombre}")
+
+                ejecutado = g["Puntos"].sum()
+
+                st.markdown(f"""
                 <div style="
-                    background-color:{color};
+                    background-color:#7f8c8d;
                     padding:10px;
                     border-radius:10px;
                     text-align:center;
                     color:white;
                     font-weight:bold;
-                    margin-bottom:10px;
-                ">
-                {int(ejec_p)} / {int(meta_p)}<br>
-                {pct_p}%
+                    margin-bottom:10px;">
+                    {int(ejecutado)} puntos<br>
+                    Sin meta
                 </div>
-                """,
-                unsafe_allow_html=True
-            )
+                """, unsafe_allow_html=True)
 
-            
-
-            tabla = construir_tabla_productos(g, maestro, df_cvs, "ASESOR")
-
-            st.dataframe(tabla, use_container_width=True)
-
-
+                tabla = construir_tabla_productos(g, maestro, df_cvs, "ASESOR")
+                st.dataframe(tabla, use_container_width=True)
 
 
 # =======================
@@ -586,6 +633,11 @@ with tab3:
         st.stop()
 
     df_general = pd.read_excel(RUTA_GENERAL)
+
+    # =========================
+    # LIMPIAR NOMBRES DE COLUMNAS
+    # =========================
+    df_general.columns = df_general.columns.str.strip()
 
     # =========================
     # FORMATEAR COLUMNAS %
@@ -626,36 +678,49 @@ with tab3:
 
     for col in cols_money:
         if col in df_general.columns:
+            df_general[col] = pd.to_numeric(df_general[col], errors="coerce")
             df_general[col] = df_general[col].apply(
                 lambda x: f"$ {int(x):,}".replace(",", ".") if pd.notnull(x) else ""
             )
 
+    # =========================
+    # LIMPIAR DECIMALES (ENTEROS)
+    # =========================
+    cols_enteros = [
+        "Meta en puntos",
+        "Ejecutado",
+        "CVS PLUS",
+        "Otros",
+        "Postpago",
+        "Terminales",
+        "Hogar"
+    ]
 
+    for col in cols_enteros:
+        if col in df_general.columns:
+            df_general[col] = pd.to_numeric(df_general[col], errors="coerce")
+            df_general[col] = df_general[col].fillna(0).astype(int)
+            df_general[col] = df_general[col].apply(
+                lambda x: f"{x:,}".replace(",", ".")
+            )
 
-
+    # =========================
+    # APLICAR ESTILO
+    # =========================
     styled_df = df_general.style
 
     for col in cols_pct:
-        styled_df = styled_df.map(color_cumplimiento, subset=[col])
+        if col in df_general.columns:
+            styled_df = styled_df.map(color_cumplimiento, subset=[col])
 
     # =========================
-    # MOSTRAR SOLO UNA VEZ
+    # MOSTRAR
     # =========================
     st.dataframe(
         styled_df,
         use_container_width=True,
         height=600
     )
-
-
-
-
-
-
-
-
-
-
 
 
 
